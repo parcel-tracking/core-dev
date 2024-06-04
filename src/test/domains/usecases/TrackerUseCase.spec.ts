@@ -101,6 +101,14 @@ class MockTrackerRepository implements ITrackerRepository {
       data: this.result
     })
   }
+
+  async clearTrackers(): Promise<ILayerDTO<boolean>> {
+    return new LayerDTO({
+      isError: this.isError,
+      message: this.isError ? "Error" : "Success",
+      data: this.result
+    })
+  }
 }
 
 class TestTrackerUseCase extends TrackerUseCase {
@@ -428,6 +436,21 @@ describe("TrackerUseCase", () => {
     )
 
     const result = await trackerUseCase.deleteTracker("1")
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toBe(true)
+  })
+
+  test("should clear trackers", async () => {
+    const mockCarrierRepository = new MockCarrierRepository(null)
+    const mockTrackerRepository = new MockTrackerRepository([], null, true)
+    const trackerUseCase = new TestTrackerUseCase(
+      mockTrackerRepository,
+      mockCarrierRepository,
+      true
+    )
+
+    const result = await trackerUseCase.clearTrackers()
 
     expect(result.isError).toBe(false)
     expect(result.data).toBe(true)

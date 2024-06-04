@@ -13,4 +13,5 @@ export default interface ITrackerRepository {
   addTracker?(tracker: ITracker): Promise<ILayerDTO<boolean>>
   updateTracker?(tracker: ITracker): Promise<ILayerDTO<boolean>>
   deleteTracker?(trackerId: string): Promise<ILayerDTO<boolean>>
+  clearTrackers?(): Promise<ILayerDTO<boolean>>
 }

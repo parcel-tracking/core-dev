@@ -10,6 +10,8 @@ export default interface ITrackerUseCase {
   ): Promise<ILayerDTO<IDeliveryDTO>>
   addTracker(newTracker: ITracker): Promise<ILayerDTO<boolean>>
   getTrackers(): Promise<ILayerDTO<ITracker[] | ITrackerDTO[]>>
+  deleteTracker(trackerId: string): Promise<ILayerDTO<boolean>>
+  clearTrackers(): Promise<ILayerDTO<boolean>>
   updateCarrierId(
     tracker: ITracker,
     newCarrierId: string
@@ -26,5 +28,4 @@ export default interface ITrackerUseCase {
     newMemo: string
   ): Promise<ILayerDTO<boolean>>
   deleteMemo(tracker: ITracker, index: number): Promise<ILayerDTO<boolean>>
-  deleteTracker(trackerId: string): Promise<ILayerDTO<boolean>>
 }

@@ -78,6 +78,14 @@ export default class TrackerUseCase implements ITrackerUseCase {
     })
   }
 
+  async deleteTracker(trackerId: string): Promise<ILayerDTO<boolean>> {
+    return this.trackerRepository.deleteTracker(trackerId)
+  }
+
+  async clearTrackers(): Promise<ILayerDTO<boolean>> {
+    return this.trackerRepository.clearTrackers()
+  }
+
   async updateCarrierId(
     tracker: ITracker,
     newCarrierId: string
@@ -128,10 +136,6 @@ export default class TrackerUseCase implements ITrackerUseCase {
     tracker.deleteMemo(index)
 
     return this.trackerRepository.updateTracker(tracker)
-  }
-
-  async deleteTracker(trackerId: string): Promise<ILayerDTO<boolean>> {
-    return this.trackerRepository.deleteTracker(trackerId)
   }
 
   protected isServer(): boolean {
