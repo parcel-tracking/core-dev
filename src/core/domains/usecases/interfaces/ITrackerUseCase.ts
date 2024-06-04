@@ -9,7 +9,7 @@ export default interface ITrackerUseCase {
     trackingNumber: string
   ): Promise<ILayerDTO<IDeliveryDTO>>
   addTracker(newTracker: ITracker): Promise<ILayerDTO<boolean>>
-  getTrackers(): Promise<ILayerDTO<ITrackerDTO[]>>
+  getTrackers(): Promise<ILayerDTO<ITracker[] | ITrackerDTO[]>>
   updateCarrierId(
     tracker: ITracker,
     newCarrierId: string
