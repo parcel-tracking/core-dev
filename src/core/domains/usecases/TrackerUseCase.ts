@@ -5,6 +5,7 @@ import ILayerDTO from "../../dtos/interfaces/ILayerDTO"
 import ITrackerDTO from "../../dtos/interfaces/ITrackerDTO"
 import ICarrierRepository from "../../repositories/interfaces/ICarrierRepository"
 import ITrackerRepository from "../../repositories/interfaces/ITrackerRepository"
+import Tracker from "../entities/Tracker"
 import ITracker from "../entities/interfaces/ITracker"
 import ITrackerUseCase from "./interfaces/ITrackerUseCase"
 
@@ -24,47 +25,26 @@ export default class TrackerUseCase implements ITrackerUseCase {
     carrierId: string,
     trackingNumber: string
   ): Promise<ILayerDTO<IDeliveryDTO>> {
-    if (typeof this.trackerRepository.getDelivery === "undefined") {
-      return new LayerDTO({
-        isError: true,
-        message: "the wrong approach.."
-      })
-    }
     const {
       isError,
       message,
       data: carrier
     } = await this.carrierRepository.getCarrier(carrierId)
+
     if (isError) {
       return new LayerDTO({ isError, message })
     }
+
     return this.trackerRepository.getDelivery(carrier, trackingNumber)
   }
 
   async addTracker(newTracker: ITracker): Promise<ILayerDTO<boolean>> {
-    if (typeof this.trackerRepository.addTracker === "undefined") {
-      return new LayerDTO({
-        isError: true,
-        message: "the wrong approach.."
-      })
-    }
-
     return this.trackerRepository.addTracker(newTracker)
   }
 
-  async getTrackers(): Promise<ILayerDTO<ITrackerDTO[]>> {
-    if (typeof this.trackerRepository.getTrackers === "undefined") {
-      return new LayerDTO({
-        isError: true,
-        message: "the wrong approach.."
-      })
-    }
-
-    const {
-      isError,
-      message,
-      data: trackers
-    } = await this.trackerRepository.getTrackers()
+  async getTrackers(): Promise<ILayerDTO<ITracker[] | ITrackerDTO[]>> {
+    const { isError, message, data } =
+      await this.trackerRepository.getTrackers()
 
     if (isError) {
       return new LayerDTO({
@@ -73,18 +53,28 @@ export default class TrackerUseCase implements ITrackerUseCase {
       })
     }
 
-    const trackerDTOs = trackers.map((entity) => {
-      return new TrackerDTO({
-        id: entity.id,
-        carrierId: entity.carrierId,
-        label: entity.label,
-        trackingNumber: entity.trackingNumber,
-        memos: entity.memos
-      })
+    const trackers = data.map((tracker: ITracker | ITrackerDTO) => {
+      if (this.isServer()) {
+        return new TrackerDTO({
+          id: tracker.id,
+          carrierId: tracker.carrierId,
+          label: tracker.label,
+          trackingNumber: tracker.trackingNumber,
+          memos: tracker.memos
+        })
+      } else {
+        return new Tracker({
+          id: tracker.id,
+          carrierId: tracker.carrierId,
+          label: tracker.label,
+          trackingNumber: tracker.trackingNumber,
+          memos: tracker.memos
+        })
+      }
     })
 
     return new LayerDTO({
-      data: trackerDTOs
+      data: trackers
     })
   }
 
@@ -92,13 +82,6 @@ export default class TrackerUseCase implements ITrackerUseCase {
     tracker: ITracker,
     newCarrierId: string
   ): Promise<ILayerDTO<boolean>> {
-    if (typeof this.trackerRepository.updateTracker === "undefined") {
-      return new LayerDTO({
-        isError: true,
-        message: "the wrong approach.."
-      })
-    }
-
     tracker.updateCarrierId(newCarrierId)
 
     return this.trackerRepository.updateTracker(tracker)
@@ -108,13 +91,6 @@ export default class TrackerUseCase implements ITrackerUseCase {
     tracker: ITracker,
     newLabel: string
   ): Promise<ILayerDTO<boolean>> {
-    if (typeof this.trackerRepository.updateTracker === "undefined") {
-      return new LayerDTO({
-        isError: true,
-        message: "the wrong approach.."
-      })
-    }
-
     tracker.updateLabel(newLabel)
 
     return this.trackerRepository.updateTracker(tracker)
@@ -124,26 +100,12 @@ export default class TrackerUseCase implements ITrackerUseCase {
     tracker: ITracker,
     newTrackingNumber: string
   ): Promise<ILayerDTO<boolean>> {
-    if (typeof this.trackerRepository.updateTracker === "undefined") {
-      return new LayerDTO({
-        isError: true,
-        message: "the wrong approach.."
-      })
-    }
-
     tracker.updateTrackingNumber(newTrackingNumber)
 
     return this.trackerRepository.updateTracker(tracker)
   }
 
   async addMemo(tracker: ITracker): Promise<ILayerDTO<boolean>> {
-    if (typeof this.trackerRepository.updateTracker === "undefined") {
-      return new LayerDTO({
-        isError: true,
-        message: "the wrong approach.."
-      })
-    }
-
     tracker.addMemo()
 
     return this.trackerRepository.updateTracker(tracker)
@@ -154,13 +116,6 @@ export default class TrackerUseCase implements ITrackerUseCase {
     index: number,
     newMemo: string
   ): Promise<ILayerDTO<boolean>> {
-    if (typeof this.trackerRepository.updateTracker === "undefined") {
-      return new LayerDTO({
-        isError: true,
-        message: "the wrong approach.."
-      })
-    }
-
     tracker.updateMemo(index, newMemo)
 
     return this.trackerRepository.updateTracker(tracker)
@@ -170,26 +125,16 @@ export default class TrackerUseCase implements ITrackerUseCase {
     tracker: ITracker,
     index: number
   ): Promise<ILayerDTO<boolean>> {
-    if (typeof this.trackerRepository.updateTracker === "undefined") {
-      return new LayerDTO({
-        isError: true,
-        message: "the wrong approach.."
-      })
-    }
-
     tracker.deleteMemo(index)
 
     return this.trackerRepository.updateTracker(tracker)
   }
 
   async deleteTracker(trackerId: string): Promise<ILayerDTO<boolean>> {
-    if (typeof this.trackerRepository.deleteTracker === "undefined") {
-      return new LayerDTO({
-        isError: true,
-        message: "the wrong approach.."
-      })
-    }
-
     return this.trackerRepository.deleteTracker(trackerId)
+  }
+
+  protected isServer(): boolean {
+    return typeof window === "undefined"
   }
 }

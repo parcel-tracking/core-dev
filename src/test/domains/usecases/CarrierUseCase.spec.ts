@@ -1,57 +1,122 @@
+import Carrier from "../../../core/domains/entities/Carrier"
+import ICarrier from "../../../core/domains/entities/interfaces/ICarrier"
+import CarrierUseCase from "../../../core/domains/usecases/CarrierUseCase"
 import CarrierDTO from "../../../core/dtos/CarrierDTO"
 import ICarrierDTO from "../../../core/dtos/interfaces/ICarrierDTO"
 import ICarrierRepository from "../../../core/repositories/interfaces/ICarrierRepository"
-import CarrierUseCase from "../../../core/domains/usecases/CarrierUseCase"
-import ICarrierUseCase from "../../../core/domains/usecases/interfaces/ICarrierUseCase"
-import Carrier from "../../../core/domains/entities/Carrier"
-import ICarrier from "../../../core/domains/entities/interfaces/ICarrier"
-import LayerDTO from "../../../core/dtos/LayerDTO"
+
+class MockCarrierRepository implements ICarrierRepository {
+  private carriers: (ICarrier | ICarrierDTO)[]
+  private isError: boolean
+
+  constructor(carriers: (ICarrier | ICarrierDTO)[], isError = false) {
+    this.carriers = carriers
+    this.isError = isError
+  }
+
+  async getCarriers(): Promise<{
+    isError: boolean
+    message: string
+    data: (ICarrier | ICarrierDTO)[]
+  }> {
+    return {
+      isError: this.isError,
+      message: this.isError ? "Error" : "Success",
+      data: this.carriers
+    }
+  }
+}
+
+class TestCarrierUseCase extends CarrierUseCase {
+  private server: boolean
+
+  constructor(carrierRepository: ICarrierRepository, server: boolean) {
+    super(carrierRepository)
+    this.server = server
+  }
+
+  protected isServer(): boolean {
+    return this.server
+  }
+}
 
 describe("CarrierUseCase", () => {
-  let carrierRepository: jest.Mocked<ICarrierRepository>
-  let carrierUseCase: ICarrierUseCase
-
-  beforeEach(() => {
-    carrierRepository = {
-      getCarriers: jest.fn(),
-      getCarrier: jest.fn()
-    } as jest.Mocked<ICarrierRepository>
-
-    carrierUseCase = new CarrierUseCase(carrierRepository)
-  })
-
-  it("should get carriers", async () => {
-    const carriers: ICarrier[] = [
-      new Carrier({
-        id: "abc",
+  test("should return carriers as CarrierDTO when isServer is true", async () => {
+    const mockCarriers: ICarrier[] = [
+      {
+        id: "",
         no: 1,
-        name: "carrier123",
-        displayName: "Carrier-Name",
+        name: "Carrier1",
+        displayName: "Carrier-1",
         isCrawlable: true,
-        isPopupEnabled: true,
-        popupURL: "http://example.com"
-      })
+        isPopupEnabled: false,
+        popupURL: ""
+      }
     ]
-    const repoLayerDTO = new LayerDTO({ data: carriers })
-
-    const carrierDTOs: ICarrierDTO[] = carriers.map((entitiy) => {
-      return new CarrierDTO({
-        id: entitiy.id,
-        no: entitiy.no,
-        name: entitiy.name,
-        displayName: entitiy.displayName,
-        isCrawlable: entitiy.isCrawlable,
-        isPopupEnabled: entitiy.isPopupEnabled,
-        popupURL: entitiy.popupURL
-      })
-    })
-    const usecaseLayerDTO = new LayerDTO({ data: carrierDTOs })
-
-    carrierRepository.getCarriers.mockResolvedValue(repoLayerDTO)
+    const mockCarrierRepository = new MockCarrierRepository(mockCarriers)
+    const carrierUseCase = new TestCarrierUseCase(mockCarrierRepository, true)
 
     const result = await carrierUseCase.getCarriers()
 
-    expect(result).toStrictEqual(usecaseLayerDTO)
-    expect(carrierRepository.getCarriers).toHaveBeenCalled()
+    expect(result.isError).toBe(false)
+    expect(result.data).toEqual(
+      mockCarriers.map(
+        (carrier) =>
+          new CarrierDTO({
+            id: carrier.id,
+            no: carrier.no,
+            name: carrier.name,
+            displayName: carrier.displayName,
+            isCrawlable: carrier.isCrawlable,
+            isPopupEnabled: carrier.isPopupEnabled,
+            popupURL: carrier.popupURL
+          })
+      )
+    )
+  })
+
+  test("should return carriers as Carrier when isServer is false", async () => {
+    const mockCarriers: ICarrierDTO[] = [
+      {
+        id: "1",
+        no: 1,
+        name: "Carrier1",
+        displayName: "Carrier-1",
+        isCrawlable: true,
+        isPopupEnabled: false,
+        popupURL: ""
+      }
+    ]
+    const mockCarrierRepository = new MockCarrierRepository(mockCarriers)
+    const carrierUseCase = new TestCarrierUseCase(mockCarrierRepository, false)
+
+    const result = await carrierUseCase.getCarriers()
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toEqual(
+      mockCarriers.map(
+        (carrier) =>
+          new Carrier({
+            id: carrier.id,
+            no: carrier.no,
+            name: carrier.name,
+            displayName: carrier.displayName,
+            isCrawlable: carrier.isCrawlable,
+            isPopupEnabled: carrier.isPopupEnabled,
+            popupURL: carrier.popupURL
+          })
+      )
+    )
+  })
+
+  test("should return error message when repository returns an error", async () => {
+    const mockCarrierRepository = new MockCarrierRepository([], true)
+    const carrierUseCase = new TestCarrierUseCase(mockCarrierRepository, true)
+
+    const result = await carrierUseCase.getCarriers()
+
+    expect(result.isError).toBe(true)
+    expect(result.message).toBe("Error")
+    expect(result.data).toBeUndefined()
   })
 })

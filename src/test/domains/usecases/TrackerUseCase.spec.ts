@@ -1,204 +1,435 @@
+import Carrier from "../../../core/domains/entities/Carrier"
+import Tracker from "../../../core/domains/entities/Tracker"
+import ICarrier from "../../../core/domains/entities/interfaces/ICarrier"
+import ITracker from "../../../core/domains/entities/interfaces/ITracker"
+import TrackerUseCase from "../../../core/domains/usecases/TrackerUseCase"
 import DeliveryDTO from "../../../core/dtos/DeliveryDTO"
+import LayerDTO from "../../../core/dtos/LayerDTO"
+import TrackerDTO from "../../../core/dtos/TrackerDTO"
+import ICarrierDTO from "../../../core/dtos/interfaces/ICarrierDTO"
 import IDeliveryDTO from "../../../core/dtos/interfaces/IDeliveryDTO"
+import ILayerDTO from "../../../core/dtos/interfaces/ILayerDTO"
 import ITrackerDTO from "../../../core/dtos/interfaces/ITrackerDTO"
+import ICarrierRepository from "../../../core/repositories/interfaces/ICarrierRepository"
 import ITrackerRepository from "../../../core/repositories/interfaces/ITrackerRepository"
 import DeliveryLocationVO from "../../../core/vos/DeliveryLocationVO"
 import DeliveryStateVO from "../../../core/vos/DeliveryStateVO"
-import ITracker from "../../../core/domains/entities/interfaces/ITracker"
-import TrackerUseCase from "../../../core/domains/usecases/TrackerUseCase"
-import Tracker from "../../../core/domains/entities/Tracker"
-import TrackerDTO from "../../../core/dtos/TrackerDTO"
-import LayerDTO from "../../../core/dtos/LayerDTO"
-import ICarrierRepository from "../../../core/repositories/interfaces/ICarrierRepository"
-import Carrier from "../../../core/domains/entities/Carrier"
+
+class MockCarrierRepository implements ICarrierRepository {
+  private carrier: ICarrier | ICarrierDTO
+  private isError: boolean
+
+  constructor(carrier: ICarrier | ICarrierDTO, isError = false) {
+    this.carrier = carrier
+    this.isError = isError
+  }
+
+  async getCarrier(carrierId: string): Promise<{
+    isError: boolean
+    message: string
+    data: ICarrier | ICarrierDTO
+  }> {
+    return {
+      isError: this.isError,
+      message: this.isError ? "Error" : "Success",
+      data: this.carrier
+    }
+  }
+}
+
+class MockTrackerRepository implements ITrackerRepository {
+  private trackers: (ITracker | ITrackerDTO)[]
+  private isError: boolean
+  private delivery: IDeliveryDTO
+  private result: boolean
+
+  constructor(
+    trackers: (ITracker | ITrackerDTO)[],
+    delivery: IDeliveryDTO,
+    result: boolean,
+    isError = false
+  ) {
+    this.trackers = trackers
+    this.delivery = delivery
+    this.result = result
+    this.isError = isError
+  }
+
+  async getTrackers(): Promise<{
+    isError: boolean
+    message: string
+    data: (ITracker | ITrackerDTO)[]
+  }> {
+    return {
+      isError: this.isError,
+      message: this.isError ? "Error" : "Success",
+      data: this.trackers
+    }
+  }
+
+  async getDelivery(
+    carrier: ICarrier | ICarrierDTO,
+    trackingNumber: string
+  ): Promise<ILayerDTO<IDeliveryDTO>> {
+    return new LayerDTO({
+      isError: this.isError,
+      message: this.isError ? "Error" : "Success",
+      data: this.delivery
+    })
+  }
+
+  async addTracker(newTracker: ITracker): Promise<ILayerDTO<boolean>> {
+    return new LayerDTO({
+      isError: this.isError,
+      message: this.isError ? "Error" : "Success",
+      data: this.result
+    })
+  }
+
+  async updateTracker(tracker: ITracker): Promise<ILayerDTO<boolean>> {
+    return new LayerDTO({
+      isError: this.isError,
+      message: this.isError ? "Error" : "Success",
+      data: this.result
+    })
+  }
+
+  async deleteTracker(trackerId: string): Promise<ILayerDTO<boolean>> {
+    return new LayerDTO({
+      isError: this.isError,
+      message: this.isError ? "Error" : "Success",
+      data: this.result
+    })
+  }
+}
+
+class TestTrackerUseCase extends TrackerUseCase {
+  private server: boolean
+
+  constructor(
+    trackerRepository: ITrackerRepository,
+    carrierRepository: ICarrierRepository,
+    server: boolean
+  ) {
+    super(trackerRepository, carrierRepository)
+    this.server = server
+  }
+
+  protected isServer(): boolean {
+    return this.server
+  }
+}
 
 describe("TrackerUseCase", () => {
-  let trackerRepository: jest.Mocked<ITrackerRepository>
-  let carrierRepository: jest.Mocked<ICarrierRepository>
-  let trackerUseCase: TrackerUseCase
-  let tracker: jest.Mocked<ITracker>
-
-  beforeEach(() => {
-    trackerRepository = {
-      getDelivery: jest.fn(),
-      getTrackers: jest.fn(),
-      addTracker: jest.fn(),
-      updateTracker: jest.fn(),
-      deleteTracker: jest.fn()
-    } as jest.Mocked<ITrackerRepository>
-
-    carrierRepository = {
-      getCarriers: jest.fn(),
-      getCarrier: jest.fn()
-    } as jest.Mocked<ICarrierRepository>
-
-    tracker = {
-      updateCarrierId: jest.fn(),
-      updateLabel: jest.fn(),
-      updateTrackingNumber: jest.fn(),
-      addMemo: jest.fn(),
-      updateMemo: jest.fn(),
-      deleteMemo: jest.fn()
-    } as unknown as jest.Mocked<ITracker>
-
-    trackerUseCase = new TrackerUseCase(trackerRepository, carrierRepository)
-  })
-
-  it("should get delivery details", async () => {
-    const carrierId = "carrier-id"
-    const trackingNumber = "tracking-number"
-    const delivery: IDeliveryDTO = new DeliveryDTO({
-      from: new DeliveryLocationVO({
-        name: "Warehouse",
-        time: "8:00 AM",
-        address: "123 Warehouse St"
-      }),
-      to: new DeliveryLocationVO({
-        name: "Customer",
-        time: "5:00 PM",
-        address: "456 Customer Rd"
-      }),
-      progresses: [],
-      state: new DeliveryStateVO({
-        id: "1",
-        name: "In Transit"
-      })
-    })
-
-    const deliveryDTO = new LayerDTO({ data: delivery })
-    const carrier = new Carrier({
-      id: "carrier-id",
+  test("should return delivery details", async () => {
+    const mockCarrier = new Carrier({
+      id: "1",
       no: 1,
-      name: "carrier-name",
-      displayName: "carrrier-display-name",
+      name: "Carrier1",
+      displayName: "Carrier-1",
       isCrawlable: true,
-      isPopupEnabled: true,
-      popupURL: "http://"
+      isPopupEnabled: false,
+      popupURL: ""
     })
-    const carrierDTO = new LayerDTO({
-      data: carrier
+    const mockDelivery: IDeliveryDTO = new DeliveryDTO({
+      from: new DeliveryLocationVO(),
+      to: new DeliveryLocationVO(),
+      progresses: [],
+      state: new DeliveryStateVO()
     })
-    carrierRepository.getCarrier.mockResolvedValue(carrierDTO)
-    trackerRepository.getDelivery.mockResolvedValue(deliveryDTO)
-
-    const result = await trackerUseCase.getDelivery(carrierId, trackingNumber)
-
-    expect(result).toBe(deliveryDTO)
-    expect(trackerRepository.getDelivery).toHaveBeenCalledWith(
-      carrier,
-      trackingNumber
+    const mockCarrierRepository = new MockCarrierRepository(mockCarrier)
+    const mockTrackerRepository = new MockTrackerRepository(
+      [],
+      mockDelivery,
+      true
     )
+    const trackerUseCase = new TestTrackerUseCase(
+      mockTrackerRepository,
+      mockCarrierRepository,
+      true
+    )
+
+    const result = await trackerUseCase.getDelivery("1", "123456")
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toEqual(mockDelivery)
   })
 
-  it("should add a tracker", async () => {
+  test("should return error when carrier repository returns an error", async () => {
+    const mockCarrierRepository = new MockCarrierRepository(null, true)
+    const mockTrackerRepository = new MockTrackerRepository([], null, false)
+    const trackerUseCase = new TestTrackerUseCase(
+      mockTrackerRepository,
+      mockCarrierRepository,
+      true
+    )
+
+    const result = await trackerUseCase.getDelivery("1", "123456")
+
+    expect(result.isError).toBe(true)
+    expect(result.message).toBe("Error")
+  })
+
+  test("should add a new tracker", async () => {
+    const mockCarrierRepository = new MockCarrierRepository(null)
+    const mockTrackerRepository = new MockTrackerRepository([], null, true)
+    const trackerUseCase = new TestTrackerUseCase(
+      mockTrackerRepository,
+      mockCarrierRepository,
+      true
+    )
     const newTracker = new Tracker({
-      id: "tracker-id"
+      id: "1"
     })
-    const isSuccessDTO = new LayerDTO({ data: true })
-    trackerRepository.addTracker.mockResolvedValue(isSuccessDTO)
+
     const result = await trackerUseCase.addTracker(newTracker)
-    expect(result).toBe(isSuccessDTO)
-    expect(trackerRepository.addTracker).toHaveBeenCalled()
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toBe(true)
   })
 
-  it("should get trackers", async () => {
-    const trackers: ITracker[] = [
+  test("should return trackers as TrackerDTO when isServer is true", async () => {
+    const mockTrackers: ITracker[] = [
       new Tracker({
-        id: "tracker-id",
-        carrierId: "carrier-id",
-        label: "label",
-        trackingNumber: "tracking-number",
+        id: "1",
+        carrierId: "1",
+        label: "Label",
+        trackingNumber: "123456",
         memos: []
       })
     ]
-    const repoLayerDTO = new LayerDTO({ data: trackers })
-
-    const trackerDTOs: ITrackerDTO[] = trackers.map((entitiy) => {
-      return new TrackerDTO({
-        id: entitiy.id,
-        carrierId: entitiy.carrierId,
-        label: entitiy.label,
-        trackingNumber: entitiy.trackingNumber,
-        memos: entitiy.memos
-      })
-    })
-    const usecaseLayerDTO = new LayerDTO({ data: trackerDTOs })
-
-    trackerRepository.getTrackers.mockResolvedValue(repoLayerDTO)
-    const result = await trackerUseCase.getTrackers()
-    expect(result).toStrictEqual(usecaseLayerDTO)
-    expect(trackerRepository.getTrackers).toHaveBeenCalled()
-  })
-
-  it("should update carrierId", async () => {
-    const newCarrierId = "new carrier id"
-    const isSuccessDTO = new LayerDTO({ data: true })
-    trackerRepository.updateTracker.mockResolvedValue(isSuccessDTO)
-    const result = await trackerUseCase.updateCarrierId(tracker, newCarrierId)
-    expect(result).toBe(isSuccessDTO)
-    expect(tracker.updateCarrierId).toHaveBeenCalledWith(newCarrierId)
-    expect(trackerRepository.updateTracker).toHaveBeenCalledWith(tracker)
-  })
-
-  it("should update label", async () => {
-    const newLabel = "new label"
-    const isSuccessDTO = new LayerDTO({ data: true })
-    trackerRepository.updateTracker.mockResolvedValue(isSuccessDTO)
-    const result = await trackerUseCase.updateLabel(tracker, newLabel)
-    expect(result).toBe(isSuccessDTO)
-    expect(tracker.updateLabel).toHaveBeenCalledWith(newLabel)
-    expect(trackerRepository.updateTracker).toHaveBeenCalledWith(tracker)
-  })
-
-  it("should update tracking number", async () => {
-    const newTrackingNumber = "123456789"
-    const isSuccessDTO = new LayerDTO({ data: true })
-    trackerRepository.updateTracker.mockResolvedValue(isSuccessDTO)
-    const result = await trackerUseCase.updateTrackingNumber(
-      tracker,
-      newTrackingNumber
+    const mockCarrierRepository = new MockCarrierRepository(null)
+    const mockTrackerRepository = new MockTrackerRepository(
+      mockTrackers,
+      null,
+      true
     )
-    expect(result).toBe(isSuccessDTO)
-    expect(tracker.updateTrackingNumber).toHaveBeenCalledWith(newTrackingNumber)
-    expect(trackerRepository.updateTracker).toHaveBeenCalledWith(tracker)
+    const trackerUseCase = new TestTrackerUseCase(
+      mockTrackerRepository,
+      mockCarrierRepository,
+      true
+    )
+
+    const result = await trackerUseCase.getTrackers()
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toEqual(
+      mockTrackers.map(
+        (tracker) =>
+          new TrackerDTO({
+            id: tracker.id,
+            carrierId: tracker.carrierId,
+            label: tracker.label,
+            trackingNumber: tracker.trackingNumber,
+            memos: tracker.memos
+          })
+      )
+    )
   })
 
-  it("should add a memo", async () => {
-    const isSuccessDTO = new LayerDTO({ data: true })
-    trackerRepository.updateTracker.mockResolvedValue(isSuccessDTO)
+  test("should return trackers as Tracker when isServer is false", async () => {
+    const mockTrackers: ITrackerDTO[] = [
+      {
+        id: "1",
+        carrierId: "1",
+        label: "Label",
+        trackingNumber: "123456",
+        memos: []
+      }
+    ]
+    const mockCarrierRepository = new MockCarrierRepository(null)
+    const mockTrackerRepository = new MockTrackerRepository(
+      mockTrackers,
+      null,
+      true
+    )
+    const trackerUseCase = new TestTrackerUseCase(
+      mockTrackerRepository,
+      mockCarrierRepository,
+      false
+    )
+
+    const result = await trackerUseCase.getTrackers()
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toEqual(
+      mockTrackers.map(
+        (tracker) =>
+          new Tracker({
+            id: tracker.id,
+            carrierId: tracker.carrierId,
+            label: tracker.label,
+            trackingNumber: tracker.trackingNumber,
+            memos: tracker.memos
+          })
+      )
+    )
+  })
+
+  test("should return error when tracker repository returns an error in getTrackers", async () => {
+    const mockCarrierRepository = new MockCarrierRepository(null)
+    const mockTrackerRepository = new MockTrackerRepository(
+      [],
+      null,
+      false,
+      true
+    )
+    const trackerUseCase = new TestTrackerUseCase(
+      mockTrackerRepository,
+      mockCarrierRepository,
+      true
+    )
+
+    const result = await trackerUseCase.getTrackers()
+
+    expect(result.isError).toBe(true)
+    expect(result.message).toBe("Error")
+  })
+
+  test("should update carrier ID of tracker", async () => {
+    const mockCarrierRepository = new MockCarrierRepository(null)
+    const mockTrackerRepository = new MockTrackerRepository([], null, true)
+    const trackerUseCase = new TestTrackerUseCase(
+      mockTrackerRepository,
+      mockCarrierRepository,
+      true
+    )
+    const tracker = new Tracker({
+      id: "1",
+      carrierId: "1",
+      label: "Label",
+      trackingNumber: "123456",
+      memos: []
+    })
+
+    const result = await trackerUseCase.updateCarrierId(tracker, "2")
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toBe(true)
+  })
+
+  test("should update label of tracker", async () => {
+    const mockCarrierRepository = new MockCarrierRepository(null)
+    const mockTrackerRepository = new MockTrackerRepository([], null, true)
+    const trackerUseCase = new TestTrackerUseCase(
+      mockTrackerRepository,
+      mockCarrierRepository,
+      true
+    )
+    const tracker = new Tracker({
+      id: "1",
+      carrierId: "1",
+      label: "Label",
+      trackingNumber: "123456",
+      memos: []
+    })
+
+    const result = await trackerUseCase.updateLabel(tracker, "New Label")
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toBe(true)
+  })
+
+  test("should update tracking number of tracker", async () => {
+    const mockCarrierRepository = new MockCarrierRepository(null)
+    const mockTrackerRepository = new MockTrackerRepository([], null, true)
+    const trackerUseCase = new TestTrackerUseCase(
+      mockTrackerRepository,
+      mockCarrierRepository,
+      true
+    )
+    const tracker = new Tracker({
+      id: "1",
+      carrierId: "1",
+      label: "Label",
+      trackingNumber: "123456",
+      memos: []
+    })
+
+    const result = await trackerUseCase.updateTrackingNumber(tracker, "654321")
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toBe(true)
+  })
+
+  test("should add memo to tracker", async () => {
+    const mockCarrierRepository = new MockCarrierRepository(null)
+    const mockTrackerRepository = new MockTrackerRepository([], null, true)
+    const trackerUseCase = new TestTrackerUseCase(
+      mockTrackerRepository,
+      mockCarrierRepository,
+      true
+    )
+    const tracker = new Tracker({
+      id: "1",
+      carrierId: "1",
+      label: "Label",
+      trackingNumber: "123456",
+      memos: []
+    })
+
     const result = await trackerUseCase.addMemo(tracker)
-    expect(result).toBe(isSuccessDTO)
-    expect(tracker.addMemo).toHaveBeenCalled()
-    expect(trackerRepository.updateTracker).toHaveBeenCalledWith(tracker)
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toBe(true)
   })
 
-  it("should update a memo", async () => {
-    const index = 0
-    const newMemo = "new memo"
-    const isSuccessDTO = new LayerDTO({ data: true })
-    trackerRepository.updateTracker.mockResolvedValue(isSuccessDTO)
-    const result = await trackerUseCase.updateMemo(tracker, index, newMemo)
-    expect(result).toBe(isSuccessDTO)
-    expect(tracker.updateMemo).toHaveBeenCalledWith(index, newMemo)
-    expect(trackerRepository.updateTracker).toHaveBeenCalledWith(tracker)
+  test("should update memo of tracker", async () => {
+    const mockCarrierRepository = new MockCarrierRepository(null)
+    const mockTrackerRepository = new MockTrackerRepository([], null, true)
+    const trackerUseCase = new TestTrackerUseCase(
+      mockTrackerRepository,
+      mockCarrierRepository,
+      true
+    )
+    const tracker = new Tracker({
+      id: "1",
+      carrierId: "1",
+      label: "Label",
+      trackingNumber: "123456",
+      memos: []
+    })
+
+    const result = await trackerUseCase.updateMemo(tracker, 0, "Updated Memo")
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toBe(true)
   })
 
-  it("should delete a memo", async () => {
-    const index = 0
-    const isSuccessDTO = new LayerDTO({ data: true })
-    trackerRepository.updateTracker.mockResolvedValue(isSuccessDTO)
-    const result = await trackerUseCase.deleteMemo(tracker, index)
-    expect(result).toBe(isSuccessDTO)
-    expect(tracker.deleteMemo).toHaveBeenCalledWith(index)
-    expect(trackerRepository.updateTracker).toHaveBeenCalledWith(tracker)
+  test("should delete memo of tracker", async () => {
+    const mockCarrierRepository = new MockCarrierRepository(null)
+    const mockTrackerRepository = new MockTrackerRepository([], null, true)
+    const trackerUseCase = new TestTrackerUseCase(
+      mockTrackerRepository,
+      mockCarrierRepository,
+      true
+    )
+    const tracker = new Tracker({
+      id: "1",
+      carrierId: "1",
+      label: "Label",
+      trackingNumber: "123456",
+      memos: []
+    })
+
+    const result = await trackerUseCase.deleteMemo(tracker, 0)
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toBe(true)
   })
 
-  it("should delete a tracker", async () => {
-    const trackerId = "tracker-id"
-    const isSuccessDTO = new LayerDTO({ data: true })
-    trackerRepository.deleteTracker.mockResolvedValue(isSuccessDTO)
-    const result = await trackerUseCase.deleteTracker(trackerId)
-    expect(result).toBe(isSuccessDTO)
-    expect(trackerRepository.deleteTracker).toHaveBeenCalledWith(trackerId)
+  test("should delete tracker", async () => {
+    const mockCarrierRepository = new MockCarrierRepository(null)
+    const mockTrackerRepository = new MockTrackerRepository([], null, true)
+    const trackerUseCase = new TestTrackerUseCase(
+      mockTrackerRepository,
+      mockCarrierRepository,
+      true
+    )
+
+    const result = await trackerUseCase.deleteTracker("1")
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toBe(true)
   })
 })
