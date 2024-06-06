@@ -14,7 +14,7 @@ export default class CarrierUseCase implements ICarrierUseCase {
     this.carrierRepository = carrierRepository
   }
 
-  async getCarriers(): Promise<ILayerDTO<ICarrier[] | ICarrierDTO[]>> {
+  async getCarriers(): Promise<ILayerDTO<ICarrierDTO[]>> {
     const { isError, message, data } =
       await this.carrierRepository.getCarriers()
 
@@ -25,36 +25,32 @@ export default class CarrierUseCase implements ICarrierUseCase {
       })
     }
 
-    const carriers = data.map((carrier: ICarrier | ICarrierDTO) => {
-      if (this.isServer()) {
-        return new CarrierDTO({
-          id: carrier.id,
-          no: carrier.no,
-          name: carrier.name,
-          displayName: carrier.displayName,
-          isCrawlable: carrier.isCrawlable,
-          isPopupEnabled: carrier.isPopupEnabled,
-          popupURL: carrier.popupURL
-        })
-      } else {
-        return new Carrier({
-          id: carrier.id,
-          no: carrier.no,
-          name: carrier.name,
-          displayName: carrier.displayName,
-          isCrawlable: carrier.isCrawlable,
-          isPopupEnabled: carrier.isPopupEnabled,
-          popupURL: carrier.popupURL
-        })
-      }
+    const carriers = data.map((carrier: ICarrierDTO) => {
+      return new Carrier({
+        id: carrier.id,
+        no: carrier.no,
+        name: carrier.name,
+        displayName: carrier.displayName,
+        isCrawlable: carrier.isCrawlable,
+        isPopupEnabled: carrier.isPopupEnabled,
+        popupURL: carrier.popupURL
+      })
+    })
+
+    const carrierDTOs = carriers.map((carrier: ICarrier) => {
+      return new CarrierDTO({
+        id: carrier.id,
+        no: carrier.no,
+        name: carrier.name,
+        displayName: carrier.displayName,
+        isCrawlable: carrier.isCrawlable,
+        isPopupEnabled: carrier.isPopupEnabled,
+        popupURL: carrier.popupURL
+      })
     })
 
     return new LayerDTO({
-      data: carriers
+      data: carrierDTOs
     })
-  }
-
-  protected isServer(): boolean {
-    return typeof window === "undefined"
   }
 }

@@ -2,10 +2,10 @@ import ITrackerDTO from "./interfaces/ITrackerDTO"
 
 export default class TrackerDTO implements ITrackerDTO {
   readonly id: string
-  readonly carrierId: string
-  readonly label: string
-  readonly trackingNumber: string
-  readonly memos: string[]
+  carrierId: string
+  label: string
+  trackingNumber: string
+  memos: string[]
 
   constructor({
     id,
